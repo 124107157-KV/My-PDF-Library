@@ -9,38 +9,102 @@ START_MARKER = "<!-- BOOKS_START -->"
 END_MARKER = "<!-- BOOKS_END -->"
 
 
-def get_pdfs():
-    if not BOOKS_DIR.exists():
-        return []
+def pretty_name(name):
+    """Convert folder names into readable category names."""
+    return name.replace("-", " ").replace("_", " ")
 
-    return sorted(
+
+def get_pdf_count():
+    return len([
+        p for p in BOOKS_DIR.rglob("*")
+        if p.is_file() and p.suffix.lower() == ".pdf"
+    ])
+
+
+def generate_folder(folder, level=2):
+    lines = []
+
+    # PDFs directly inside current folder
+    pdfs = sorted(
         [
-            path
-            for path in BOOKS_DIR.rglob("*")
-            if path.is_file() and path.suffix.lower() == ".pdf"
+            p for p in folder.iterdir()
+            if p.is_file() and p.suffix.lower() == ".pdf"
         ],
-        key=lambda p: p.name.lower(),
+        key=lambda p: p.name.lower()
     )
 
+    # Subfolders
+    subfolders = sorted(
+        [
+            p for p in folder.iterdir()
+            if p.is_dir()
+        ],
+        key=lambda p: p.name.lower()
+    )
 
-def generate_book_list(pdfs):
-    if not pdfs:
-        return "\n_No books added yet._\n"
+    # Add current folder heading
+    if folder != BOOKS_DIR:
+        heading = "#" * level
+        lines.append(f"{heading} {pretty_name(folder.name)}")
+        lines.append("")
 
-    lines = []
-    lines.append("")
-    lines.append(f"## 📚 Books ({len(pdfs)})")
-    lines.append("")
-
-    for index, pdf in enumerate(pdfs, start=1):
+    # Add PDFs
+    for pdf in pdfs:
         title = pdf.stem
         link = quote(pdf.as_posix(), safe="/")
+        lines.append(f"- [{title}]({link})")
 
-        lines.append(
-            f"{index}. [{title}]({link})"
-        )
+    if pdfs:
+        lines.append("")
 
-    lines.append("")
+    # Recursively process subfolders
+    for subfolder in subfolders:
+        lines.extend(generate_folder(subfolder, level + 1))
+
+    return lines
+
+
+def generate_library():
+    if not BOOKS_DIR.exists():
+        return "\n_No books available._\n"
+
+    total = get_pdf_count()
+
+    lines = [
+        "",
+        f"**Total Books: {total}**",
+        "",
+        "---",
+        "",
+    ]
+
+    categories = sorted(
+        [p for p in BOOKS_DIR.iterdir() if p.is_dir()],
+        key=lambda p: p.name.lower()
+    )
+
+    # PDFs directly under books/
+    root_pdfs = sorted(
+        [
+            p for p in BOOKS_DIR.iterdir()
+            if p.is_file() and p.suffix.lower() == ".pdf"
+        ],
+        key=lambda p: p.name.lower()
+    )
+
+    if root_pdfs:
+        lines.append("## Uncategorized")
+        lines.append("")
+
+        for pdf in root_pdfs:
+            title = pdf.stem
+            link = quote(pdf.as_posix(), safe="/")
+            lines.append(f"- [{title}]({link})")
+
+        lines.append("")
+
+    for category in categories:
+        lines.extend(generate_folder(category, 2))
 
     return "\n".join(lines)
 
@@ -53,8 +117,7 @@ def update_readme():
             "README.md must contain BOOKS_START and BOOKS_END markers."
         )
 
-    pdfs = get_pdfs()
-    book_list = generate_book_list(pdfs)
+    library = generate_library()
 
     pattern = (
         re.escape(START_MARKER)
@@ -64,20 +127,20 @@ def update_readme():
 
     replacement = (
         START_MARKER
-        + book_list
+        + library
         + END_MARKER
     )
 
-    new_content = re.sub(
+    content = re.sub(
         pattern,
         replacement,
         content,
-        flags=re.DOTALL,
+        flags=re.DOTALL
     )
 
-    README.write_text(new_content, encoding="utf-8")
+    README.write_text(content, encoding="utf-8")
 
-    print(f"README updated with {len(pdfs)} PDF(s).")
+    print(f"README updated. Total PDFs: {get_pdf_count()}")
 
 
 if __name__ == "__main__":
