@@ -5,9 +5,9 @@ A personal collection of books, textbooks, papers, and reference material.
 > The book list below is automatically generated whenever PDFs are added, removed, or renamed.
 
 <!-- BOOKS_START -->
+## 📚 Books (1)
 
-_No books added yet._
-
+1. [Hello World](books/Hello%20World.pdf)
 <!-- BOOKS_END -->
 
 ---
